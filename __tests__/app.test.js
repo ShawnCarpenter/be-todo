@@ -85,7 +85,7 @@ describe('routes', () => {
     done();
   });
 
-  test('returns no todo items when hitting GET /api/todos/:id with an id that doesn\'t belong to the user', async(done) => {
+  test('returns nothing when hitting GET /api/todos/:id with an id that doesn\'t belong to the user', async(done) => {
 
     const expectation = '';
 
@@ -113,19 +113,33 @@ describe('routes', () => {
     done();
   });
 
+  test('returns an error when trying to post without an authorization key', async(done) => {
+
+    const expectation = 
+      { 'error': 'no authorization found' };
+
+    const data = await fakeRequest(app)
+      .post('/api/todos')
+      .send(newTodo)
+      .expect('Content-Type', /json/)
+      .expect(401);
+
+    expect(data.body).toEqual(expectation);
+    done();
+  });
   test('returns the new todo item when hitting PUT /api/todos/:id with updated info', async(done) => {
 
     const expectation = 
       {
         id: 4,
-        todo: 'Made these fucking tests work',
+        todo: 'Made these fine tests work',
         completed: true,
         owner_id: 2,
       };
     
     const updatedTodo =  {
       id: 4,
-      todo: 'Made these fucking tests work',
+      todo: 'Made these fine tests work',
       completed: true,
       owner_id: 2,
     };
