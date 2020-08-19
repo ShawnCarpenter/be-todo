@@ -6,48 +6,160 @@ const fakeRequest = require('supertest');
 const app = require('../lib/app');
 const client = require('../lib/client');
 
-describe('app routes', () => {
-  beforeAll(done => {
-    return client.connect(done);
-  });
+describe('routes', () => {
+  let token;
+  const newTodo = {
+    id: 4,
+    todo: 'Make these fucking tests work',
+    completed: false,
+    owner_id: 2,
+  };
 
-  beforeEach(() => {
-    // TODO: ADD DROP SETUP DB SCRIPT
+  beforeAll(async done => {
     execSync('npm run setup-db');
+    client.connect();
+    const signInData = await fakeRequest(app)
+      .post('/auth/signup')
+      .send({
+        email: 'jon@user.com',
+        password: '1234'
+      });
+    token = signInData.body.token;
+    return done();
   });
 
   afterAll(done => {
     return client.end(done);
   });
 
-  test('returns animals', async() => {
+  test('returns a new todo when creating new todo', async(done) => {
+    const data = await fakeRequest(app)
+      .post('/api/todos')
+      .send(newTodo)
+      .set('Authorization', token)
+      .expect('Content-Type', /json/)
+      .expect(200);
+    expect(data.body).toEqual(newTodo);
+    done();
+  });
+
+  test('returns all todo items that belong to the user when hitting GET /api/todos', async(done) => {
 
     const expectation = [
       {
-        'id': 1,
-        'name': 'bessie',
-        'coolfactor': 3,
-        'owner_id': 1
+        id: 4,
+        todo: 'Make these fucking tests work',
+        completed: false,
+        owner_id: 2,
       },
-      {
-        'id': 2,
-        'name': 'jumpy',
-        'coolfactor': 4,
-        'owner_id': 1
-      },
-      {
-        'id': 3,
-        'name': 'spot',
-        'coolfactor': 10,
-        'owner_id': 1
-      }
+      
     ];
 
     const data = await fakeRequest(app)
-      .get('/animals')
+      .get('/api/todos')
+      .set('Authorization', token)
       .expect('Content-Type', /json/)
       .expect(200);
 
     expect(data.body).toEqual(expectation);
+    done();
   });
+
+  test('returns the matching todo item when hitting GET /api/todos/:id', async(done) => {
+
+    const expectation = 
+      {
+        id: 4,
+        todo: 'Make these fucking tests work',
+        completed: false,
+        owner_id: 2,
+      };
+
+    const data = await fakeRequest(app)
+      .get('/api/todos/4')
+      .set('Authorization', token)
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    expect(data.body).toEqual(expectation);
+    done();
+  });
+
+  test('returns no todo items when hitting GET /api/todos/:id with an id that doesn\'t belong to the user', async(done) => {
+
+    const expectation = '';
+
+    const data = await fakeRequest(app)
+      .get('/api/todos/3')
+      .set('Authorization', token)
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    expect(data.body).toEqual(expectation);
+    done();
+  });
+
+  test('returns an error when trying to get without an authorization key', async(done) => {
+
+    const expectation = 
+      { 'error': 'no authorization found' };
+
+    const data = await fakeRequest(app)
+      .get('/api/todos')
+      .expect('Content-Type', /json/)
+      .expect(401);
+
+    expect(data.body).toEqual(expectation);
+    done();
+  });
+
+  test('returns the new todo item when hitting PUT /api/todos/:id with updated info', async(done) => {
+
+    const expectation = 
+      {
+        id: 4,
+        todo: 'Made these fucking tests work',
+        completed: true,
+        owner_id: 2,
+      };
+    
+    const updatedTodo =  {
+      id: 4,
+      todo: 'Made these fucking tests work',
+      completed: true,
+      owner_id: 2,
+    };
+
+    const data = await fakeRequest(app)
+      .put('/api/todos/4')
+      .send(updatedTodo)
+      .set('Authorization', token)
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    expect(data.body).toEqual(expectation);
+    done();
+  });
+
+  test('returns nothing when trying to get after delete', async(done) => {
+
+    const expectation = '';
+    
+
+    await fakeRequest(app)
+      .delete('/api/todos/4')
+      .set('Authorization', token)
+      .expect('Content-Type', /json/)
+      .expect(200);
+    const data = await fakeRequest(app)
+      .get('/api/todos/4')
+      .set('Authorization', token)
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    expect(data.body).toEqual(expectation);
+    done();
+  });
+
 });
+
